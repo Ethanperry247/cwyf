@@ -1,0 +1,10 @@
+scipy 
+numpy 
+pandas
+statistics
+geopy
+numpy_ext
+googlemaps
+polyline
+dotenv
+fastapi[all]

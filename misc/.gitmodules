@@ -1,0 +1,6 @@
+[submodule "danger-dodgers-server"]
+	path = danger-dodgers-server
+	url = https://github.com/Ethanperry247/danger-dodgers-server
+[submodule "danger-dodgers"]
+	path = danger-dodgers
+	url = https://github.com/Ethanperry247/danger-dodgers
