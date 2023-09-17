@@ -15,8 +15,10 @@ type mockStruct struct {
 }
 
 const (
-	mockId   string = "my_id"
-	mockKind Kind   = "kind"
+	mockId    string = "my_id"
+	mockKind  Kind   = "kind"
+	mockTag   string = "my_tag"
+	mockIdTwo string = "my_id_two"
 )
 
 var (
@@ -63,38 +65,6 @@ func TestMain(m *testing.M) {
 	m.Run()
 }
 
-func TestDisassemble(t *testing.T) {
-	db := &BadgerDatabaseWrapper[mockStruct]{
-		kind:            mockKind,
-		mappings: mockMappings,
-	}
-
-	kvs := db.disassemble(mockId, mockObject)
-	require.ElementsMatch(t, mockKvs, kvs)
-}
-
-func BenchmarkDisassemble(b *testing.B) {
-	db := &BadgerDatabaseWrapper[mockStruct]{
-		kind:            mockKind,
-		mappings: mockMappings,
-	}
-
-	for index := 0; index < b.N; index++ {
-		db.disassemble(mockId, mockObject)
-	}
-}
-
-func BenchmarkAssemble(b *testing.B) {
-	db := &BadgerDatabaseWrapper[mockStruct]{
-		kind:            mockKind,
-		mappings: mockMappings,
-	}
-
-	for index := 0; index < b.N; index++ {
-		db.assemble(mockId, mockKvs)
-	}
-}
-
 func TestCreateGetAndDelete(t *testing.T) {
 	db, err := badger.Open(badger.DefaultOptions("").WithInMemory(true))
 	require.NoError(t, err)
@@ -114,7 +84,44 @@ func TestCreateGetAndDelete(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = wrapper.Get(mockId)
-	require.Equal(t, badger.ErrKeyNotFound, err)
+	require.Equal(t, &NotFoundError{id: mockId}, err)
+}
+
+func TestTagCreateAndListByTag(t *testing.T) {
+	db, err := badger.Open(badger.DefaultOptions("").WithInMemory(true))
+	require.NoError(t, err)
+	defer db.Close()
+
+	wrapper := New[mockStruct](db, mockKind, mockMappings)
+	require.NoError(t, err)
+
+	err = wrapper.Create(mockId, mockObject, mockTag)
+	require.NoError(t, err)
+
+	res, err := wrapper.ListByTag(mockTag)
+	require.NoError(t, err)
+	require.ElementsMatch(t, []string{mockId}, res)
+
+	err = wrapper.Create(mockIdTwo, mockObject, mockTag)
+	require.NoError(t, err)
+
+	res, err = wrapper.ListByTag(mockTag)
+	require.NoError(t, err)
+	require.ElementsMatch(t, []string{mockId, mockIdTwo}, res)
+
+	err = wrapper.Delete(mockId)
+	require.NoError(t, err)
+
+	res, err = wrapper.ListByTag(mockTag)
+	require.NoError(t, err)
+	require.ElementsMatch(t, []string{mockIdTwo}, res)
+
+	err = wrapper.Delete(mockIdTwo)
+	require.NoError(t, err)
+
+	res, err = wrapper.ListByTag(mockTag)
+	require.NoError(t, err)
+	require.ElementsMatch(t, []string{}, res)
 }
 
 func BenchmarkDBCreate(b *testing.B) {
@@ -123,7 +130,6 @@ func BenchmarkDBCreate(b *testing.B) {
 	defer db.Close()
 
 	wrapper := New[mockStruct](db, mockKind, mockMappings)
-	require.NoError(b, err)
 
 	err = wrapper.Create(mockId, mockObject)
 	require.NoError(b, err)
@@ -139,7 +145,6 @@ func BenchmarkDBCreateAndDelete(b *testing.B) {
 	defer db.Close()
 
 	wrapper := New[mockStruct](db, mockKind, mockMappings)
-	require.NoError(b, err)
 
 	err = wrapper.Create(mockId, mockObject)
 	require.NoError(b, err)
@@ -159,7 +164,6 @@ func BenchmarkDBGet(b *testing.B) {
 	defer db.Close()
 
 	wrapper := New[mockStruct](db, mockKind, mockMappings)
-	require.NoError(b, err)
 
 	err = wrapper.Create(mockId, mockObject)
 	require.NoError(b, err)
@@ -169,5 +173,73 @@ func BenchmarkDBGet(b *testing.B) {
 
 	for index := 0; index < b.N; index++ {
 		wrapper.Get(mockId)
+	}
+}
+
+func BenchmarkDBTagAndList(b *testing.B) {
+	db, err := badger.Open(badger.DefaultOptions("").WithInMemory(true))
+	require.NoError(b, err)
+	defer db.Close()
+
+	wrapper := New[mockStruct](db, mockKind, mockMappings)
+
+	err = wrapper.Create(mockId, mockObject, mockTag)
+	require.NoError(b, err)
+
+	for index := 0; index < b.N; index++ {
+		wrapper.ListByTag(mockTag)
+	}
+}
+
+func BenchmarkNoopDBCreate(b *testing.B) {
+
+	wrapper := New[mockStruct](&NoopBadgerDatabase{}, mockKind, mockMappings)
+
+	err := wrapper.Create(mockId, mockObject)
+	require.NoError(b, err)
+
+	for index := 0; index < b.N; index++ {
+		wrapper.Create(mockId, mockObject)
+	}
+}
+
+func BenchmarkNoopDBCreateAndDelete(b *testing.B) {
+
+	wrapper := New[mockStruct](&NoopBadgerDatabase{}, mockKind, mockMappings)
+
+	err := wrapper.Create(mockId, mockObject)
+	require.NoError(b, err)
+
+	err = wrapper.Delete(mockId)
+	require.NoError(b, err)
+
+	for index := 0; index < b.N; index++ {
+		wrapper.Create(mockId, mockObject)
+		wrapper.Delete(mockId)
+	}
+}
+
+func BenchmarkNoopDBGet(b *testing.B) {
+	wrapper := New[mockStruct](&NoopBadgerDatabase{}, mockKind, mockMappings)
+
+	err := wrapper.Create(mockId, mockObject)
+	require.NoError(b, err)
+
+	_, err = wrapper.Get(mockId)
+	require.NoError(b, err)
+
+	for index := 0; index < b.N; index++ {
+		wrapper.Get(mockId)
+	}
+}
+
+func BenchmarkNoopDBTagAndList(b *testing.B) {
+	wrapper := New[mockStruct](&NoopBadgerDatabase{}, mockKind, mockMappings)
+
+	err := wrapper.Create(mockId, mockObject, mockTag)
+	require.NoError(b, err)
+
+	for index := 0; index < b.N; index++ {
+		wrapper.ListByTag(mockTag)
 	}
 }

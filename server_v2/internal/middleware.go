@@ -39,3 +39,23 @@ func (handler *HTTPAuthenticator) Authenticate(f func(c *fiber.Ctx) error) func(
 		return f(c)
 	}
 }
+
+func (handler *HTTPAuthenticator) Provide(f func(c *fiber.Ctx, id string) error) func(c *fiber.Ctx) error {
+	return func(c *fiber.Ctx) error {
+		bearer, err := trimBearer(c.GetReqHeaders()["Authorization"])
+		if err != nil {
+			return err
+		}
+
+		payload, err := handler.authenticator.Validate(bearer)
+		if err != nil {
+			return err
+		}
+
+		if payload.Type != auth.Authentication {
+			return &InvalidTokenTypeError{}
+		}
+
+		return f(c, payload.UserIdentifier)
+	}
+}

@@ -35,21 +35,30 @@ const (
 	MIN_PASSWORD_LENGTH    = 7
 )
 
-func (service *UserService) check(user *User) error {
+func validateUsername(username string) error {
 	// Check to see if username is blank.
-	if user.Username == "" {
+	if username == "" {
 		return &BlankUsernameError{}
 	}
 
 	// Check to see if username is too large.
-	if len(user.Username) > MAX_USERNAME_LENGTH {
+	if len(username) > MAX_USERNAME_LENGTH {
 		return &UsernameTooLargeError{
 			max: MAX_USERNAME_LENGTH,
 		}
 	}
 
+	return nil
+}
+
+func (service *UserService) check(user *User) error {
+	err := validateUsername(user.Username)
+	if err != nil {
+		return err
+	}
+
 	// Check to see if user already exists.
-	user, err := service.db.Get(user.Username)
+	_, err = service.db.Get(user.Username)
 	if err == nil {
 		return &UserAlreadyExistsError{}
 	}
@@ -64,6 +73,11 @@ func (service *UserService) check(user *User) error {
 }
 
 func (service *UserService) password(user *User) error {
+	err := validateUsername(user.Username)
+	if err != nil {
+		return err
+	}
+
 	// Check to see if user exists.
 	stored, err := service.db.Get(user.Username)
 	if err != nil {
@@ -169,6 +183,11 @@ func (service *UserService) Delete(user *User) error {
 }
 
 func (service *UserService) Get(id string) (*User, error) {
+	err := validateUsername(id)
+	if err != nil {
+		return nil, err
+	}
+
 	// Check to see if user exists.
 	user, err := service.db.Get(id)
 	if err != nil {

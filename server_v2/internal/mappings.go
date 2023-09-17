@@ -40,9 +40,9 @@ var (
 	ReportMapping = db.Mapping[Report]{
 		"ID": db.AssembleDisassemble[Report]{
 			A: func(t *Report, b []byte) {
-				t.ID = db.BYTES_UUID(b)
+				t.ID = db.BYTES_STRING(b)
 			}, D: func(t *Report) []byte {
-				return db.UUID_BYTES(t.ID)
+				return db.STRING_BYTES(t.ID)
 			},
 		}, "Tag": db.AssembleDisassemble[Report]{
 			A: func(t *Report, b []byte) {
@@ -78,12 +78,17 @@ var (
 			D: func(t *Report) []byte {
 				return db.STRING_BYTES(t.UserID)
 			},
-		}, "PositionID": db.AssembleDisassemble[Report]{
+		}, "Latitude": db.AssembleDisassemble[Report]{
 			A: func(t *Report, b []byte) {
-				t.PositionID = db.BYTES_STRING(b)
+				t.Latitude = db.BYTES_FLOAT(b)
+			}, D: func(t *Report) []byte {
+				return db.FLOAT_BYTES(t.Latitude)
 			},
-			D: func(t *Report) []byte {
-				return db.STRING_BYTES(t.PositionID)
+		}, "Longitude": db.AssembleDisassemble[Report]{
+			A: func(t *Report, b []byte) {
+				t.Longitude = db.BYTES_FLOAT(b)
+			}, D: func(t *Report) []byte {
+				return db.FLOAT_BYTES(t.Longitude)
 			},
 		},
 	}
@@ -91,9 +96,9 @@ var (
 	PositionMapping = db.Mapping[Position]{
 		"ID": db.AssembleDisassemble[Position]{
 			A: func(t *Position, b []byte) {
-				t.ID = db.BYTES_UUID(b)
+				t.ID = db.BYTES_STRING(b)
 			}, D: func(t *Position) []byte {
-				return db.UUID_BYTES(t.ID)
+				return db.STRING_BYTES(t.ID)
 			},
 		}, "Latitude": db.AssembleDisassemble[Position]{
 			A: func(t *Position, b []byte) {
@@ -113,9 +118,9 @@ var (
 	AltitudePositionMapping = db.Mapping[AltitudePosition]{
 		"ID": db.AssembleDisassemble[AltitudePosition]{
 			A: func(t *AltitudePosition, b []byte) {
-				t.ID = db.BYTES_UUID(b)
+				t.ID = db.BYTES_STRING(b)
 			}, D: func(t *AltitudePosition) []byte {
-				return db.UUID_BYTES(t.ID)
+				return db.STRING_BYTES(t.ID)
 			},
 		}, "Latitude": db.AssembleDisassemble[AltitudePosition]{
 			A: func(t *AltitudePosition, b []byte) {
@@ -163,9 +168,9 @@ var (
 	RouteMapping = db.Mapping[Route]{
 		"ID": db.AssembleDisassemble[Route]{
 			A: func(t *Route, b []byte) {
-				t.ID = db.BYTES_UUID(b)
+				t.ID = db.BYTES_STRING(b)
 			}, D: func(t *Route) []byte {
-				return db.UUID_BYTES(t.ID)
+				return db.STRING_BYTES(t.ID)
 			},
 		},
 	}

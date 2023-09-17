@@ -3,11 +3,12 @@ package internal
 import (
 	"danger-dodgers/pkg/db"
 	"time"
-
-	"github.com/google/uuid"
 )
 
 type (
+	ID struct {
+		UserID string
+	}
 	Token struct {
 		Token string
 	}
@@ -18,20 +19,21 @@ type (
 		Password string
 	}
 	Report struct {
-		ID          uuid.UUID
-		Tag         string
+		ID          string
 		Description string
+		Tag         string
 		Title       string
 		Timestamp   time.Time
 		UserID      string
-		PositionID  string
+		Latitude  float64
+		Longitude float64
 	}
 	Point struct {
 		Latitude  float64
 		Longitude float64
 	}
 	Position struct {
-		ID uuid.UUID
+		ID string
 		Point
 	}
 	AltitudePosition struct {
@@ -43,7 +45,7 @@ type (
 		Radius float64
 	}
 	Route struct {
-		ID uuid.UUID
+		ID string
 	}
 )
 

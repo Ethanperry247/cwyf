@@ -23,3 +23,11 @@ type NotFoundError struct {
 func (err *NotFoundError) Error() string {
 	return fmt.Sprintf("object with the key %s was not found", err.id)
 }
+
+type InvalidIDError struct {
+	errors.BadRequest
+}
+
+func (err *InvalidIDError) Error() string {
+	return "the identifier must only contain letters, numbers, dashes, or underscores"
+}

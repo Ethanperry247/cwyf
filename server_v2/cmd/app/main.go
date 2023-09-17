@@ -51,14 +51,17 @@ func run() error {
 
 	// Create databases.
 	userDB := db.New[internal.User](database, internal.USER, internal.UserMapping)
+	reportDB := db.New[internal.Report](database, internal.REPORT, internal.ReportMapping)
 
 	// Create services.
 	userService := internal.NewUserService(userDB, passwordHasher, refresh)
 	tokenService := internal.NewTokenService(authentication)
+	reportService := internal.NewReportService(reportDB)
 
 	// Create handlers.
 	userHandler := internal.NewUserHandler(userService)
 	tokenHandler := internal.NewTokenHandler(tokenService, authentication)
+	reportHandler := internal.NewReportHandler(reportService)
 
 	// Create application server.
 	app := fiber.New(fiber.Config{
@@ -73,11 +76,18 @@ func run() error {
 	userGroup.Post("/", userHandler.Create)
 	userGroup.Post("/login", userHandler.Authenticate)
 	userGroup.Get("/:id", authMiddleware.Authenticate(userHandler.Get))
-	userGroup.Get("/:id", authMiddleware.Authenticate(userHandler.Delete))
+	userGroup.Delete("/:id", authMiddleware.Authenticate(userHandler.Delete))
 
 	// Token groups.
 	tokenGroup := app.Group("/tokens")
 	tokenGroup.Post("/", tokenHandler.Create)
+
+	// Report groups.
+	reportGroup := app.Group("/reports")
+	reportGroup.Post("/", authMiddleware.Provide(reportHandler.Create))
+	reportGroup.Get("/", authMiddleware.Provide(reportHandler.List))
+	reportGroup.Get("/:id", authMiddleware.Provide(reportHandler.Get))
+	reportGroup.Delete("/:id", authMiddleware.Provide(reportHandler.Delete))
 
 	return app.Listen(fmt.Sprintf(":%s", GetApplicationPort()))
 }

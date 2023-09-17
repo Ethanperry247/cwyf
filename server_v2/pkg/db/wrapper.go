@@ -1,14 +1,16 @@
 package db
 
 import (
-	"fmt"
+	"regexp"
 
 	badger "github.com/dgraph-io/badger/v4"
 )
 
 const (
-	KEY_DELIMITER = "."
-	ENTRY_PREFIX  = ""
+	KEY_DELIMITER    = string(rune(0x0))
+	ENTRY_PREFIX     = string(rune(0x1))
+	TAG_PREFIX       = string(rune(0x2))
+	TAG_INDEX_PREFIX = string(rune(0x3))
 )
 
 type (
@@ -28,7 +30,9 @@ type AssembleDisassemble[T any] struct {
 type Mapping[T any] map[string]AssembleDisassemble[T]
 
 type Database[T any] interface {
-	Create(id string, object *T) error
+	Create(id string, object *T, tags ...string) error
+	Tags(id string, tags ...string) error
+	ListByTag(tag string) ([]string, error)
 	Get(id string) (*T, error)
 	Delete(id string) error
 }
@@ -60,7 +64,28 @@ func (db *BadgerDatabaseWrapper[T]) entry(id string) []byte {
 	return []byte(concat(ENTRY_PREFIX, concat(string(db.kind), id)))
 }
 
-func (db *BadgerDatabaseWrapper[T]) Create(id string, object *T) error {
+func (db *BadgerDatabaseWrapper[T]) prefixTag(id string) []byte {
+	return []byte(concat(concat(TAG_PREFIX, concat(string(db.kind), id)), ""))
+}
+
+func (db *BadgerDatabaseWrapper[T]) prefixIndex(id string) []byte {
+	return []byte(concat(concat(TAG_INDEX_PREFIX, concat(string(db.kind), id)), ""))
+}
+
+func (db *BadgerDatabaseWrapper[T]) tag(tag string, id string) []byte {
+	return []byte(concat(TAG_PREFIX, concat(string(db.kind), concat(tag, id))))
+}
+
+func (db *BadgerDatabaseWrapper[T]) index(tag string, id string) []byte {
+	return []byte(concat(TAG_INDEX_PREFIX, concat(string(db.kind), concat(id, tag))))
+}
+
+func (db *BadgerDatabaseWrapper[T]) Create(id string, object *T, tags ...string) error {
+	ok := regexp.MustCompile(`^[A-Za-z0-9_-]+$`).MatchString(id)
+	if !ok {
+		return &InvalidIDError{}
+	}
+
 	key := db.entry(id)
 	err := db.db.View(func(txn *badger.Txn) error {
 		_, err := txn.Get(key)
@@ -88,6 +113,11 @@ func (db *BadgerDatabaseWrapper[T]) Create(id string, object *T) error {
 			return err
 		}
 
+		err = db.addTags(txn, id, tags...)
+		if err != nil {
+			return err
+		}
+
 		for field, mapping := range db.mappings {
 			err := txn.Set([]byte(concat(string(db.kind), concat(id, field))), mapping.D(object))
 			if err != nil {
@@ -97,6 +127,73 @@ func (db *BadgerDatabaseWrapper[T]) Create(id string, object *T) error {
 
 		return nil
 	})
+}
+
+func (db *BadgerDatabaseWrapper[T]) addTags(txn *badger.Txn, id string, tags ...string) error {
+	for _, tag := range tags {
+		err := txn.Set(db.tag(tag, id), []byte(id))
+		if err != nil {
+			return err
+		}
+
+		err = txn.Set(db.index(tag, id), []byte(tag))
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (db *BadgerDatabaseWrapper[T]) removeTags(txn *badger.Txn, id string) error {
+	it := txn.NewIterator(badger.DefaultIteratorOptions)
+	defer it.Close()
+
+	prefix := db.prefixIndex(id)
+	for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
+		item := it.Item()
+		err := item.Value(func(val []byte) error {
+			return txn.Delete(db.tag(string(val), id))
+		})
+		if err != nil {
+			return err
+		}
+
+		err = txn.Delete(item.Key())
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (db *BadgerDatabaseWrapper[T]) Tags(id string, tags ...string) error {
+	return db.db.Update(func(txn *badger.Txn) error {
+		return db.addTags(txn, id, tags...)
+	})
+}
+
+func (db *BadgerDatabaseWrapper[T]) ListByTag(tag string) ([]string, error) {
+	var tags []string
+	db.db.View(func(txn *badger.Txn) error {
+		it := txn.NewIterator(badger.DefaultIteratorOptions)
+		defer it.Close()
+
+		prefix := db.prefixTag(tag)
+		for it.Seek(prefix); it.ValidForPrefix(prefix); it.Next() {
+			item := it.Item()
+			err := item.Value(func(val []byte) error {
+				tags = append(tags, string(val))
+				return nil
+			})
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	return tags, nil
 }
 
 func (db *BadgerDatabaseWrapper[T]) Get(id string) (*T, error) {
@@ -160,38 +257,6 @@ func (db *BadgerDatabaseWrapper[T]) Delete(id string) error {
 			}
 		}
 
-		return nil
+		return db.removeTags(txn, id)
 	})
-}
-
-func (db *BadgerDatabaseWrapper[T]) disassemble(id string, object *T) []KV {
-	var index int
-	kvs := make([]KV, len(db.mappings))
-	for field, mapping := range db.mappings {
-		kvs[index] = KV{
-			K: []byte(concat(string(db.kind), concat(id, field))),
-			V: mapping.D(object),
-		}
-		index++
-	}
-	return kvs
-}
-
-func (db *BadgerDatabaseWrapper[T]) assemble(id string, kvs []KV) (*T, error) {
-	t := new(T)
-	for _, kv := range kvs {
-		var index int
-		for i := len(kv.K) - 1; kv.K[i] != 0x2e; i-- {
-			index = i
-		}
-
-		mapping, ok := db.mappings[string(kv.K[index:])]
-		if !ok {
-			return t, fmt.Errorf("invalid field")
-		}
-
-		mapping.A(t, kv.V)
-	}
-
-	return t, nil
 }
