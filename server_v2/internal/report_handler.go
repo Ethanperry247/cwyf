@@ -19,7 +19,7 @@ func NewReportHandler(service *ReportService) *ReportHandler {
 func (handler *ReportHandler) Get(c *fiber.Ctx, id string) error {
 
 	entity, err := handler.service.Get(&Report{
-		ID: c.Params("id"),
+		ID:     c.Params("id"),
 		UserID: id,
 	})
 	if err != nil {
@@ -31,7 +31,7 @@ func (handler *ReportHandler) Get(c *fiber.Ctx, id string) error {
 
 func (handler *ReportHandler) Delete(c *fiber.Ctx, id string) error {
 	err := handler.service.Delete(&Report{
-		ID: c.Params("id"),
+		ID:     c.Params("id"),
 		UserID: id,
 	})
 	if err != nil {

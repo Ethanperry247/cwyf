@@ -13,6 +13,8 @@ const (
 	TAG_INDEX_PREFIX = string(rune(0x3))
 )
 
+var verifyID = regexp.MustCompile(`^[A-Za-z0-9_@!%+$.-]+$`)
+
 type (
 	Kind string
 	KV   struct {
@@ -29,12 +31,18 @@ type AssembleDisassemble[T any] struct {
 
 type Mapping[T any] map[string]AssembleDisassemble[T]
 
+type Peek interface {
+	Peek(id string) error
+}
+
 type Database[T any] interface {
 	Create(id string, object *T, tags ...string) error
+	Update(id string, object *T) error
 	Tags(id string, tags ...string) error
 	ListByTag(tag string) ([]string, error)
 	Get(id string) (*T, error)
 	Delete(id string) error
+	Peek
 }
 
 type BadgerDatabase interface {
@@ -80,14 +88,32 @@ func (db *BadgerDatabaseWrapper[T]) index(tag string, id string) []byte {
 	return []byte(concat(TAG_INDEX_PREFIX, concat(string(db.kind), concat(id, tag))))
 }
 
-func (db *BadgerDatabaseWrapper[T]) Create(id string, object *T, tags ...string) error {
-	ok := regexp.MustCompile(`^[A-Za-z0-9_-]+$`).MatchString(id)
+func (db *BadgerDatabaseWrapper[T]) validate(key string, field string) error {
+	ok := verifyID.MatchString(key)
 	if !ok {
-		return &InvalidIDError{}
+		return &InvalidKeyError{
+			field: field,
+		}
+	}
+
+	return nil
+}
+
+func (db *BadgerDatabaseWrapper[T]) Create(id string, object *T, tags ...string) error {
+	err := db.validate(id, "identifier")
+	if err != nil {
+		return err
+	}
+
+	for _, tag := range tags {
+		err := db.validate(tag, "tag")
+		if err != nil {
+			return err
+		}
 	}
 
 	key := db.entry(id)
-	err := db.db.View(func(txn *badger.Txn) error {
+	err = db.db.View(func(txn *badger.Txn) error {
 		_, err := txn.Get(key)
 
 		// Key not found is the desired error here.
@@ -114,6 +140,45 @@ func (db *BadgerDatabaseWrapper[T]) Create(id string, object *T, tags ...string)
 		}
 
 		err = db.addTags(txn, id, tags...)
+		if err != nil {
+			return err
+		}
+
+		for field, mapping := range db.mappings {
+			err := txn.Set([]byte(concat(string(db.kind), concat(id, field))), mapping.D(object))
+			if err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+}
+
+func (db *BadgerDatabaseWrapper[T]) Update(id string, object *T) error {
+	err := db.validate(id, "identifier")
+	if err != nil {
+		return err
+	}
+
+	key := db.entry(id)
+	err = db.db.View(func(txn *badger.Txn) error {
+		_, err := txn.Get(key)
+
+		if err == badger.ErrKeyNotFound {
+			return &NotFoundError{
+				id: id,
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+
+	return db.db.Update(func(txn *badger.Txn) error {
+		err := txn.Set(key, []byte{})
 		if err != nil {
 			return err
 		}
@@ -231,6 +296,23 @@ func (db *BadgerDatabaseWrapper[T]) Get(id string) (*T, error) {
 	}
 
 	return t, nil
+}
+
+func (db *BadgerDatabaseWrapper[T]) Peek(id string) error {
+	return db.db.View(func(txn *badger.Txn) error {
+		_, err := txn.Get(db.entry(id))
+		if err == badger.ErrKeyNotFound {
+			return &NotFoundError{
+				id: id,
+			}
+		}
+
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
 }
 
 func (db *BadgerDatabaseWrapper[T]) Delete(id string) error {

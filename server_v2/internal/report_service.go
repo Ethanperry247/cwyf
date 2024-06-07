@@ -6,13 +6,13 @@ import (
 	"time"
 )
 
-const (
-	MAX_REPORT_ID_LENGTH          = 100
-	MAX_REPORT_TITLE_LENGTH       = 100
-	MAX_REPORT_TAG_LENGTH         = 100
-	MAX_REPORT_DESCRIPTION_LENGTH = 1000
-	MAX_REPORT_USER_ID_LENGTH     = 100
-	MAX_REPORT_POSITION_ID_LENGTH = 100
+var (
+	ReportVerifier    = FieldVerifier{}.WithModel(REPORT)
+	VerifyReportID          = REQUIRED_STANDARD_VERIFIER(ReportVerifier).WithField("ID").Build()
+	VerifyReportDescription = OPTIONAL_EXTENDED_VERIFIER(ReportVerifier).WithField("description").Build()
+	VerifyReportTitle       = REQUIRED_STANDARD_VERIFIER(ReportVerifier).WithField("title").Build()
+	VerifyReportUserID      = REQUIRED_STANDARD_VERIFIER(ReportVerifier).WithField("userID").Build()
+	VerifyReportActivityID  = OPTIONAL_STANDARD_VERIFIER(ReportVerifier).WithField("activityID").Build()
 )
 
 type ReportService struct {
@@ -26,67 +26,34 @@ func NewReportService(db db.Database[Report]) *ReportService {
 	}
 }
 
-func (service *ReportService) check(report *Report) error {
-	if report.ID == "" {
-		return &ReportFieldBlankError{
-			field: "id",
-		}
-	}
-
-	if len(report.ID) > MAX_REPORT_ID_LENGTH {
-		return &ReportFieldTooLargeError{
-			max:   MAX_REPORT_ID_LENGTH,
-			field: "id",
-		}
-	}
-
-	_, err := service.db.Get(report.ID)
-	if err == nil {
-		return &ReportAlreadyExistsError{}
-	}
-
-	_, ok := err.(*db.NotFoundError)
-	if !ok {
-		return err
-	}
-
-	return nil
-}
-
-func (service *ReportService) checkStringField(fieldName string, field string, max int) error {
-	if field == "" {
-		return &ReportFieldBlankError{
-			field: fieldName,
-		}
-	}
-
-	if len(field) > max {
-		return &ReportFieldTooLargeError{
-			field: fieldName,
-			max:   max,
-		}
-	}
-
-	return nil
-}
-
 func (service *ReportService) Create(report *Report) error {
-	err := service.check(report)
+
+	err := VerifyReportID(report.ID)
 	if err != nil {
 		return err
 	}
 
-	err = service.checkStringField("id", report.ID, MAX_REPORT_ID_LENGTH)
+	err = Peek(report.ID, REPORT, service.db)
 	if err != nil {
 		return err
 	}
 
-	err = service.checkStringField("title", report.Title, MAX_REPORT_TITLE_LENGTH)
+	err = VerifyReportTitle(report.Title)
 	if err != nil {
 		return err
 	}
 
-	err = service.checkStringField("userID", report.UserID, MAX_REPORT_USER_ID_LENGTH)
+	err = VerifyReportUserID(report.UserID)
+	if err != nil {
+		return err
+	}
+
+	err = VerifyReportDescription(report.Description)
+	if err != nil {
+		return err
+	}
+
+	err = VerifyReportActivityID(report.ActivityID)
 	if err != nil {
 		return err
 	}
@@ -101,15 +68,21 @@ func (service *ReportService) Create(report *Report) error {
 
 	report.Timestamp = time.Now()
 
+	tags := []string{service.geo.AsString(point), report.UserID}
+
 	if report.Tag == "" {
-		return service.db.Create(report.ID, report, service.geo.AsString(point), report.UserID)
+		tags = append(tags, report.Tag)
 	}
 
-	return service.db.Create(report.ID, report, report.Tag, service.geo.AsString(point), report.UserID)
+	if report.ActivityID == "" {
+		tags = append(tags, report.ActivityID)
+	}
+
+	return service.db.Create(report.ID, report, tags...)
 }
 
 func (service *ReportService) Get(report *Report) (*Report, error) {
-	err := service.checkStringField("id", report.ID, MAX_REPORT_ID_LENGTH)
+	err := VerifyReportID(report.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -119,15 +92,16 @@ func (service *ReportService) Get(report *Report) (*Report, error) {
 		return nil, err
 	}
 
-	if res.UserID != report.UserID {
-		return nil, &InvalidUserIDError{}
+	err = CompareUserIDs(report.UserID, res.UserID)
+	if err != nil {
+		return nil, err
 	}
 
 	return res, nil
 }
 
 func (service *ReportService) Delete(report *Report) error {
-	err := service.checkStringField("id", report.ID, MAX_REPORT_ID_LENGTH)
+	err := VerifyReportID(report.ID)
 	if err != nil {
 		return err
 	}
@@ -137,15 +111,16 @@ func (service *ReportService) Delete(report *Report) error {
 		return err
 	}
 
-	if res.UserID != report.UserID {
-		return &InvalidUserIDError{}
+	err = CompareUserIDs(report.UserID, res.UserID)
+	if err != nil {
+		return err
 	}
 
 	return service.db.Delete(report.ID)
 }
 
 func (service *ReportService) ListByUser(id string) ([]string, error) {
-	err := service.checkStringField("id", id, MAX_REPORT_ID_LENGTH)
+	err := VerifyReportID(id)
 	if err != nil {
 		return nil, err
 	}

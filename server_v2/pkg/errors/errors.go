@@ -25,7 +25,7 @@ func (NotFound) Code() Group {
 	return NOT_FOUND
 }
 
-type Forbidden struct {}
+type Forbidden struct{}
 
 func (Forbidden) Code() Group {
 	return FORBIDDEN

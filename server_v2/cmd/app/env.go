@@ -13,3 +13,7 @@ func GetHasherKey() string {
 func GetDatabasePath() string {
 	return os.Getenv("DB_PATH")
 }
+
+func GetMapsAPIKey() string {
+	return os.Getenv("MAPS_API_KEY")
+}

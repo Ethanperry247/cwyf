@@ -1,0 +1,33 @@
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Values.app.name }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  serviceName: {{ .Values.app.name }}
+  selector:
+    matchLabels:
+      app: {{ .Values.app.name }}
+  replicas: 1
+  template:
+    metadata:
+      name: {{ .Values.app.name }}
+      labels:
+        app: {{ .Values.app.name }}
+    spec:
+      containers:
+      - name: {{ .Values.app.name }}
+        image: {{ .Values.app.image }}
+        env:
+        - name: APP_PORT
+          value: {{ .Values.app.appPort.port | quote }}
+        - name: STORAGE_PATH
+          value: {{ .Values.app.storage.path }}
+        ports:
+        - containerPort: {{ .Values.app.appPort.port }}
+          name: {{ tpl .Values.app.appPort.name . }}
+      volumes:
+      - name: {{ tpl .Values.app.pvc.name . }}
+        persistentVolumeClaim:
+          claimName: {{ tpl .Values.app.pvc.name . }}

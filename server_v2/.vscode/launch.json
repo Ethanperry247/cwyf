@@ -11,9 +11,10 @@
             "mode": "auto",
             "program": "${fileDirname}",
             "env": {
-                "APP_PORT": "3333",
+                "APP_PORT": "3005",
                 "HASH_KEY": "11111111111111111111111111111111",
-                "DB_PATH": "./data"
+                "DB_PATH": "./data",
+                "MAPS_API_KEY": "AIzaSyA2Un4bNNSuF9y64GkyYPby2PE1bGmMl3c"
             }
         }
     ]

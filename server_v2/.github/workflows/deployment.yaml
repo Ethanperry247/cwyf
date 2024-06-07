@@ -1,0 +1,82 @@
+name: deployment
+
+on:
+  workflow_dispatch:
+
+env:
+  AZURE_CONTAINER_REGISTRY: cwyfcr
+  PROJECT_NAME: danger-dodgers
+  RESOURCE_GROUP: CWYF
+  CLUSTER_NAME: cwyf-prod
+  REGISTRY_URL: cwyfcr.azurecr.io
+  CHART_PATH: charts/environment
+  CLUSTER_NAMESPACE: danger-dodgers
+
+jobs:
+  deployment:
+    name: "Deploy helm chart to kubernetes"
+    runs-on: ubuntu-latest
+    environment: production
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v4
+
+      - name: "Azure login"
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.DEPLOYMENT_CREDENTIALS }}
+
+      - name: "Docker login"
+        uses: Azure/docker-login@v1
+        with:
+          login-server: contoso.azurecr.io
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+
+      - name: "Set up kubectl"
+        uses: azure/setup-kubectl@v2.0
+
+      - name: "Sets K8s context"
+        uses: azure/aks-set-context@v3
+        with:
+          creds: '${{ secrets.DEPLOYMENT_CREDENTIALS }}'
+          resource-group: ${{ env.RESOURCE_GROUP }}
+          cluster-name: ${{ env.CLUSTER_NAME }}
+
+      - name: "Creates k8s secret"
+        uses: Azure/k8s-create-secret@v1.1
+        with:
+          namespace: ${{ env.NAMESPACE }}
+          container-registry-url: ${{ env.AZURE_CONTAINER_REGISTRY }}.azurecr.io
+          container-registry-username: ${{ secrets.REGISTRY_USERNAME }}
+          container-registry-password: ${{ secrets.REGISTRY_PASSWORD }}
+          secret-name: ${{ env.PROJECT_NAME }}
+
+      - name: 'Set semantic version number'
+        run: echo "SEM_VERSION=${GITHUB_REF##*/}" >> $GITHUB_ENV
+
+      - name: "Configure deployment"
+        uses: azure/k8s-bake@v2
+        with:
+          namespace: ${{ env.CLUSTER_NAMESPACE }}
+          renderEngine: "helm"
+          helmChart: ${{ env.CHART_PATH }}
+          helm-version: "latest"
+          overrides: |
+            app.image: cwyfcr.azurecr.io/danger-dodgers:${{ env.SEM_VERSION }}
+        id: bake
+
+      - name: "Deploy application"
+        uses: Azure/k8s-deploy@v4
+        with:
+          namespace: ${{ env.CLUSTER_NAMESPACE }}
+          manifests: ${{ steps.bake.outputs.manifestsBundle }}
+          images: |
+            ${{ env.AZURE_CONTAINER_REGISTRY }}.azurecr.io/${{ env.PROJECT_NAME }}:${{ github.sha }}
+          imagepullsecrets: |
+            ${{ env.PROJECT_NAME }}

@@ -1,0 +1,11 @@
+app:
+  name: dodgers
+  image: cwyfcr.azurecr.io/danger-dodgers:latest
+  appPort:
+    port: 5353
+    name: "{{ .Values.app.name }}-svc"
+  pvc: 
+    name: "{{ .Values.app.name }}-pvc"
+    size: 20Gi
+  storage:
+    path: data

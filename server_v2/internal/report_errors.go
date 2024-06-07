@@ -7,7 +7,7 @@ import (
 
 type ReportFieldTooLargeError struct {
 	errors.BadRequest
-	max int
+	max   int
 	field string
 }
 

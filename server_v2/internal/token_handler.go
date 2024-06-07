@@ -49,7 +49,7 @@ func (handler *TokenHandler) Create(c *fiber.Ctx) error {
 	}
 
 	token, err := handler.service.Token(&User{
-		Username: payload.UserIdentifier,
+		Email: payload.UserIdentifier,
 	})
 	if err != nil {
 		return err

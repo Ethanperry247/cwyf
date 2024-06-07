@@ -11,10 +11,4 @@ type Service interface {
 	GetReport(id string) (Report, error)
 	DeleteReport(id string) error
 	ListReport() ([]Report, error)
-	ListReportByGeography(Area) ([]Report, error)
-
-	CreateRoute(route Route, id string) error
-	UpdateRoute(route Route, id string) error
-	GetRoute(id string) (Route, error)
-	DeleteRoute(id string) error
 }

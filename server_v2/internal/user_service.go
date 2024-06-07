@@ -28,58 +28,24 @@ func NewUserService(
 
 const (
 	REFRESH_TOKEN_LIFESPAN = time.Hour * 48
-	MAX_EMAIL_LENGTH       = 100
-	MAX_USERNAME_LENGTH    = 100
-	MAX_NAME_LENGTH        = 100
-	MAX_PASSWORD_LENGTH    = 50
-	MIN_PASSWORD_LENGTH    = 7
 )
 
-func validateUsername(username string) error {
-	// Check to see if username is blank.
-	if username == "" {
-		return &BlankUsernameError{}
-	}
-
-	// Check to see if username is too large.
-	if len(username) > MAX_USERNAME_LENGTH {
-		return &UsernameTooLargeError{
-			max: MAX_USERNAME_LENGTH,
-		}
-	}
-
-	return nil
-}
-
-func (service *UserService) check(user *User) error {
-	err := validateUsername(user.Username)
-	if err != nil {
-		return err
-	}
-
-	// Check to see if user already exists.
-	_, err = service.db.Get(user.Username)
-	if err == nil {
-		return &UserAlreadyExistsError{}
-	}
-
-	// Affirm the error returned is a "not found" error.
-	_, ok := err.(*db.NotFoundError)
-	if !ok {
-		return err
-	}
-
-	return nil
-}
+var (
+	UserVerifier       = FieldVerifier{}.WithModel(USER)
+	VerifyUserID       = REQUIRED_STANDARD_VERIFIER(UserVerifier).WithField("ID").Build()
+	VerifyUserEmail    = REQUIRED_STANDARD_VERIFIER(UserVerifier).WithField("email").Build()
+	VerifyUserName     = REQUIRED_STANDARD_VERIFIER(UserVerifier).WithField("name").Build()
+	VerifyUserPassword = PASSWORD_VERIFIER(UserVerifier).Build()
+)
 
 func (service *UserService) password(user *User) error {
-	err := validateUsername(user.Username)
+	err := VerifyUserID(user.Email)
 	if err != nil {
 		return err
 	}
 
 	// Check to see if user exists.
-	stored, err := service.db.Get(user.Username)
+	stored, err := service.db.Get(user.Email)
 	if err != nil {
 		return err
 	}
@@ -94,53 +60,31 @@ func (service *UserService) password(user *User) error {
 }
 
 func (service *UserService) Create(user *User) error {
-	err := service.check(user)
+
+	err := VerifyUserEmail(user.Email)
 	if err != nil {
 		return err
-	}
-
-	// Check to see if name is blank.
-	if user.Name == "" {
-		return &BlankNameError{}
-	}
-
-	// Check to see if name is too large.
-	if len(user.Name) > MAX_NAME_LENGTH {
-		return &NameTooLargeError{
-			max: MAX_NAME_LENGTH,
-		}
-	}
-
-	// Check to see if password is too small.
-	if len(user.Password) < MIN_PASSWORD_LENGTH {
-		return &PasswordTooSmallError{
-			min: MIN_PASSWORD_LENGTH,
-		}
-	}
-
-	// Check to see if password is too large.
-	if len(user.Password) > MAX_PASSWORD_LENGTH {
-		return &PasswordTooLargeError{
-			max: MAX_PASSWORD_LENGTH,
-		}
-	}
-
-	// Validate email is not blank.
-	if user.Email == "" {
-		return &BlankEmailError{}
-	}
-
-	// Validate email is not too large.
-	if len(user.Email) > MAX_EMAIL_LENGTH {
-		return &EmailTooLargeError{
-			max: MAX_EMAIL_LENGTH,
-		}
 	}
 
 	// Validate email address structure.
 	_, err = mail.ParseAddress(user.Email)
 	if err != nil {
 		return &InvalidEmailError{}
+	}
+	// Make sure that ID does not already exist.
+	err = Peek(user.Email, USER, service.db)
+	if err != nil {
+		return err
+	}
+
+	err = VerifyUserName(user.Name)
+	if err != nil {
+		return err
+	}
+
+	err = VerifyUserPassword(user.Password)
+	if err != nil {
+		return err
 	}
 
 	// Hash password and replace password in struct.
@@ -150,7 +94,20 @@ func (service *UserService) Create(user *User) error {
 	}
 	user.Password = hash
 
-	return service.db.Create(user.Username, user)
+	return service.db.Create(user.Email, user)
+}
+
+func (service *UserService) Update(users *ModifyUser) error {
+	err := service.password(users.CurrentUser)
+	if err != nil {
+		return err
+	}
+
+	if users.CurrentUser.Email != users.NewUser.Email {
+		return &CannotUpdateEmailError{}
+	}
+
+	return service.db.Update(users.CurrentUser.Email, users.NewUser)
 }
 
 func (service *UserService) Token(user *User) (*Token, error) {
@@ -162,7 +119,7 @@ func (service *UserService) Token(user *User) (*Token, error) {
 	}
 
 	// Generate new token.
-	token, err := service.auth.Generate(user.Username, REFRESH_TOKEN_LIFESPAN)
+	token, err := service.auth.Generate(user.Email, REFRESH_TOKEN_LIFESPAN)
 	if err != nil {
 		return nil, err
 	}
@@ -179,11 +136,11 @@ func (service *UserService) Delete(user *User) error {
 		return err
 	}
 
-	return service.db.Delete(user.Username)
+	return service.db.Delete(user.Email)
 }
 
 func (service *UserService) Get(id string) (*User, error) {
-	err := validateUsername(id)
+	err := VerifyUserID(id)
 	if err != nil {
 		return nil, err
 	}

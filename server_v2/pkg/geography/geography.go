@@ -55,9 +55,9 @@ func (geo *Geography) Subdivisions(point *Point, len int) ([]*Point, error) {
 	hash := geo.hash(point)
 	for latIndex := 0; latIndex < len; latIndex++ {
 		for longIndex := 0; longIndex < len; longIndex++ {
-			points[latIndex*len + longIndex] = &Point{
-				Latitude:  hash.Latitude + float64(latIndex) * (float64(geo.Divisions) / LAT_DEGREES),
-				Longitude: hash.Longitude + float64(longIndex) * (float64(geo.Divisions) / LONG_DEGREES),
+			points[latIndex*len+longIndex] = &Point{
+				Latitude:  hash.Latitude + float64(latIndex)*(float64(geo.Divisions)/LAT_DEGREES),
+				Longitude: hash.Longitude + float64(longIndex)*(float64(geo.Divisions)/LONG_DEGREES),
 			}
 		}
 	}

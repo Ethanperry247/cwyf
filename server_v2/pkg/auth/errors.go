@@ -1,5 +1,7 @@
 package auth
 
+import "danger-dodgers/pkg/errors"
+
 type InvalidSymmetricKeySizeError struct {
 }
 
@@ -8,6 +10,7 @@ func (err *InvalidSymmetricKeySizeError) Error() string {
 }
 
 type InvalidTokenError struct {
+	errors.Forbidden
 }
 
 func (err *InvalidTokenError) Error() string {
@@ -15,6 +18,7 @@ func (err *InvalidTokenError) Error() string {
 }
 
 type TokenExpiryError struct {
+	errors.Forbidden
 }
 
 func (err *TokenExpiryError) Error() string {

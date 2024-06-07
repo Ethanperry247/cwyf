@@ -20,13 +20,6 @@ var (
 			D: func(t *User) []byte {
 				return db.STRING_BYTES(t.Email)
 			},
-		}, "Username": db.AssembleDisassemble[User]{
-			A: func(t *User, b []byte) {
-				t.Username = db.BYTES_STRING(b)
-			},
-			D: func(t *User) []byte {
-				return db.STRING_BYTES(t.Username)
-			},
 		}, "Password": db.AssembleDisassemble[User]{
 			A: func(t *User, b []byte) {
 				t.Password = db.BYTES_STRING(b)
@@ -143,34 +136,62 @@ var (
 		},
 	}
 
-	AreaMapping = db.Mapping[Area]{
-		"Latitude": db.AssembleDisassemble[Area]{
-			A: func(t *Area, b []byte) {
+	ActivityPositionMapping = db.Mapping[ActivityPosition]{
+		"ID": db.AssembleDisassemble[ActivityPosition]{
+			A: func(t *ActivityPosition, b []byte) {
+				t.ID = db.BYTES_STRING(b)
+			}, D: func(t *ActivityPosition) []byte {
+				return db.STRING_BYTES(t.ID)
+			},
+		}, "Latitude": db.AssembleDisassemble[ActivityPosition]{
+			A: func(t *ActivityPosition, b []byte) {
 				t.Latitude = db.BYTES_FLOAT(b)
-			}, D: func(t *Area) []byte {
+			}, D: func(t *ActivityPosition) []byte {
 				return db.FLOAT_BYTES(t.Latitude)
 			},
-		}, "Longitude": db.AssembleDisassemble[Area]{
-			A: func(t *Area, b []byte) {
+		}, "Longitude": db.AssembleDisassemble[ActivityPosition]{
+			A: func(t *ActivityPosition, b []byte) {
 				t.Longitude = db.BYTES_FLOAT(b)
-			}, D: func(t *Area) []byte {
+			}, D: func(t *ActivityPosition) []byte {
 				return db.FLOAT_BYTES(t.Longitude)
 			},
-		}, "Radius": db.AssembleDisassemble[Area]{
-			A: func(t *Area, b []byte) {
-				t.Radius = db.BYTES_FLOAT(b)
-			}, D: func(t *Area) []byte {
-				return db.FLOAT_BYTES(t.Radius)
+		}, "Altitude": db.AssembleDisassemble[ActivityPosition]{
+			A: func(t *ActivityPosition, b []byte) {
+				t.Altitude = db.BYTES_FLOAT(b)
+			}, D: func(t *ActivityPosition) []byte {
+				return db.FLOAT_BYTES(t.Altitude)
+			},
+		}, "Index": db.AssembleDisassemble[ActivityPosition]{
+			A: func(t *ActivityPosition, b []byte) {
+				t.Index = db.BYTES_INT(b)
+			},
+			D: func(t *ActivityPosition) []byte {
+				return db.INT_BYTES(t.Index)
+			},
+		}, "Timestamp": db.AssembleDisassemble[ActivityPosition]{
+			A: func(t *ActivityPosition, b []byte) {
+				t.Timestamp = db.BYTES_TIME(b)
+			},
+			D: func(t *ActivityPosition) []byte {
+				return db.TIME_BYTES(t.Timestamp)
 			},
 		},
 	}
 
-	RouteMapping = db.Mapping[Route]{
-		"ID": db.AssembleDisassemble[Route]{
-			A: func(t *Route, b []byte) {
+	ActivityMapping = db.Mapping[Activity]{
+		"ID": db.AssembleDisassemble[Activity]{
+			A: func(t *Activity, b []byte) {
 				t.ID = db.BYTES_STRING(b)
-			}, D: func(t *Route) []byte {
+			},
+			D: func(t *Activity) []byte {
 				return db.STRING_BYTES(t.ID)
+			},
+		}, "UserID": db.AssembleDisassemble[Activity]{
+			A: func(t *Activity, b []byte) {
+				t.UserID = db.BYTES_STRING(b)
+			},
+			D: func(t *Activity) []byte {
+				return db.STRING_BYTES(t.UserID)
 			},
 		},
 	}

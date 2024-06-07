@@ -10,7 +10,7 @@ func (err *MissingBearerTokenError) Error() string {
 	return "bearer token missing"
 }
 
-type ImproperlyFormattedBearerTokenError struct{
+type ImproperlyFormattedBearerTokenError struct {
 	errors.BadRequest
 }
 
@@ -18,7 +18,7 @@ func (err *ImproperlyFormattedBearerTokenError) Error() string {
 	return "bearer token is improperly formatted"
 }
 
-type InvalidTokenTypeError struct{
+type InvalidTokenTypeError struct {
 	errors.BadRequest
 }
 
@@ -33,4 +33,3 @@ type InvalidUserIDError struct {
 func (err *InvalidUserIDError) Error() string {
 	return "user id does not match id of token"
 }
-

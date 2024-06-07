@@ -77,5 +77,5 @@ func TestExpiredToken(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = authenticator.Validate(token)
-	require.Equal(t, &InvalidTokenError{}, err)
+	require.Equal(t, &TokenExpiryError{}, err)
 }

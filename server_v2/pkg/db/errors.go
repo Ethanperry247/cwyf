@@ -24,10 +24,11 @@ func (err *NotFoundError) Error() string {
 	return fmt.Sprintf("object with the key %s was not found", err.id)
 }
 
-type InvalidIDError struct {
+type InvalidKeyError struct {
 	errors.BadRequest
+	field string
 }
 
-func (err *InvalidIDError) Error() string {
-	return "the identifier must only contain letters, numbers, dashes, or underscores"
+func (err *InvalidKeyError) Error() string {
+	return fmt.Sprintf("the %s must only contain letters, numbers, or the following special characters: _@!%+$.-", err.field)
 }

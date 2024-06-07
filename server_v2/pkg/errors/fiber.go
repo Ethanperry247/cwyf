@@ -42,7 +42,6 @@ func (handler *FiberErrorHandler) HandleError(c *fiber.Ctx, err error) error {
 		fmt.Println("non-internal error")
 	}
 
-
 	err = c.Status(code).Send([]byte(err.Error()))
 	if err != nil {
 		fmt.Println("could not send error")
